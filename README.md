@@ -83,22 +83,7 @@ An AI-powered data analysis tool that lets you query Excel/CSV files and MySQL d
 
 
 ## 🏗️ Architecture
-
-```
-User Question (Any Language)
-        ↓
-    Translation to English
-        ↓
-    Natural Language → SQL
-        ↓
-    Query Execution (MySQL/SQLite)
-        ↓
-    Results → Insights Generation
-        ↓
-    Translation back to Original Language
-        ↓
-    Display with Visualizations
-```
+![project_architecture](../assets/project_architecture.png)
 
 ## 📁 Project Structure
 
@@ -123,34 +108,9 @@ llm-data-analyst/
 - Automatic language detection and translation
 - Responses in the same language as input
 
-## 🚨 Troubleshooting
+## Demo
+[![Watch the video](https://img.youtube.com/vi/VIDEO_ID/0.jpg)](https://onedrive.live.com/?qt=allmyphotos&photosData=%2Fshare%2FEB85E3220D84349C%21sea8b143c04304e7080d28843ae202e36%3Fithint%3Dvideo%26migratedtospo%3Dtrue&cid=EB85E3220D84349C&id=EB85E3220D84349C%21sea8b143c04304e7080d28843ae202e36&redeem=aHR0cHM6Ly8xZHJ2Lm1zL3YvYy9lYjg1ZTMyMjBkODQzNDljL0VUd1VpLW93QkhCT2dOS0lRNjRnTGpZQnBVSEZMTW1aSHZ5bnJDTkhWa2lNUkE&v=photos)
 
-**Ollama not responding**:
-```bash
-# Check if Ollama is running
-ollama list
-
-# Restart Ollama
-ollama serve
-```
-
-**MySQL connection issues**:
-- Verify credentials and database exists
-- Check if MySQL server is running
-- Ensure user has proper permissions
-
-**File upload errors**:
-- Check file format (Excel/CSV only)
-- Ensure file is not corrupted
-- Try smaller files first
-
-## 📊 Sample Data
-
-The system works with any tabular data:
-- Sales data (products, revenue, dates)
-- Customer data (names, purchases, regions)
-- Financial data (transactions, accounts)
-- Inventory data (items, quantities, locations)
 
 ## 🤝 Contributing
 
