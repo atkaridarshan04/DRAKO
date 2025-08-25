@@ -62,6 +62,19 @@ class DataAnalystAssistant:
         except Exception as e:
             print(f"Error loading existing tables: {e}")
     
+    def refresh_table_data(self):
+        """Refresh table metadata after DML operations"""
+        if self.db_connection:
+            self.load_existing_tables()
+        elif hasattr(self, 'sqlite_conn'):
+            # Refresh SQLite table data
+            for table_name in list(self.tables.keys()):
+                try:
+                    df = pd.read_sql_query(f"SELECT * FROM `{table_name}` LIMIT 3", self.sqlite_conn)
+                    self.tables[table_name]['sample_data'] = df.to_dict('records')
+                except:
+                    pass
+    
     def load_file(self, file_path: str, table_name: str = None) -> str:
         if not table_name:
             table_name = os.path.splitext(os.path.basename(file_path))[0].lower()
@@ -114,6 +127,32 @@ class DataAnalystAssistant:
         
         return sql
     
+    def detect_sql_operation(self, question: str) -> str:
+        question_lower = question.lower()
+        if any(word in question_lower for word in ['delete', 'remove']):
+            return 'DELETE'
+        elif any(word in question_lower for word in ['update', 'change', 'modify', 'set']):
+            return 'UPDATE'
+        elif any(word in question_lower for word in ['insert', 'add', 'create']):
+            return 'INSERT'
+        else:
+            return 'SELECT'
+    
+    def get_fallback_query(self, question: str, table_name: str) -> str:
+        question_lower = question.lower()
+        if 'delete' in question_lower or 'remove' in question_lower:
+            return f"SELECT * FROM `{table_name}` WHERE 1=0"  # Safe fallback
+        elif 'update' in question_lower or 'change' in question_lower:
+            return f"SELECT * FROM `{table_name}` LIMIT 5"
+        elif 'sort' in question_lower or 'order' in question_lower:
+            cols = self.tables[table_name]['columns']
+            first_col = cols[0] if cols else '*'
+            return f"SELECT * FROM `{table_name}` ORDER BY `{first_col}` LIMIT 10"
+        elif 'count' in question_lower:
+            return f"SELECT COUNT(*) FROM `{table_name}`"
+        else:
+            return f"SELECT * FROM `{table_name}` LIMIT 5"
+    
     def clean_sql(self, sql: str) -> str:
         sql = re.sub(r'```sql\n?|```\n?|SQL:|Query:', '', sql, flags=re.IGNORECASE)
         sql = sql.strip()
@@ -131,7 +170,7 @@ class DataAnalystAssistant:
             if line and not line.startswith('#') and not line.startswith('--'):
                 if any(word in line.lower() for word in ['to find', 'you would', "here's how", 'this query']):
                     continue
-                if line.upper().startswith(('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'FROM', 'WHERE')):
+                if line.upper().startswith(('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'FROM', 'WHERE', 'ORDER')):
                     lines.append(line)
         
         cleaned = ' '.join(lines).strip()
@@ -219,16 +258,20 @@ Provide only the English translation:"""
         if not table_names:
             raise Exception("No tables loaded. Please upload a file first.")
         
+        # Detect operation type
+        operation_type = self.detect_sql_operation(english_question)
+        
         prompt = f"""{schema}
 
-Generate ONLY a SQL query for this question: {english_question}
+Generate ONLY a SQL query for this request: {english_question}
 
 IMPORTANT:
 - Return ONLY the SQL query
 - No explanations or text
-- Start with SELECT
+- Support SELECT, INSERT, UPDATE, DELETE operations
 - Use exact table/column names from schema
 - Put column names with spaces in backticks like `Invoice Number`
+- For sorting use ORDER BY
 
 SQL:"""
         
@@ -237,7 +280,7 @@ SQL:"""
                 "model": "llama3",
                 "prompt": prompt,
                 "stream": False,
-                "options": {"temperature": 0, "num_predict": 50}
+                "options": {"temperature": 0, "num_predict": 80}
             })
             
             if response.status_code == 200:
@@ -247,23 +290,65 @@ SQL:"""
         except Exception:
             pass
         
-        if 'count' in question.lower():
-            return f"SELECT COUNT(*) FROM `{table_names[0]}`"
-        elif any(word in question.lower() for word in ['top', 'highest', 'max']):
-            return f"SELECT * FROM `{table_names[0]}` LIMIT 10"
-        else:
-            return f"SELECT * FROM `{table_names[0]}` LIMIT 5"
+        # Fallback queries based on operation type
+        return self.get_fallback_query(english_question, table_names[0])
     
     def execute_query(self, sql_query: str) -> pd.DataFrame:
         try:
-            if self.engine:
-                return pd.read_sql_query(sql_query, self.engine)
-            elif hasattr(self, 'sqlite_conn'):
-                return pd.read_sql_query(sql_query, self.sqlite_conn)
+            # Check if it's a DML operation
+            operation = sql_query.strip().upper().split()[0]
+            
+            if operation in ['INSERT', 'UPDATE', 'DELETE']:
+                return self.execute_dml_query(sql_query)
             else:
-                raise Exception("No database connection available")
+                # Regular SELECT query
+                if self.engine:
+                    return pd.read_sql_query(sql_query, self.engine)
+                elif hasattr(self, 'sqlite_conn'):
+                    return pd.read_sql_query(sql_query, self.sqlite_conn)
+                else:
+                    raise Exception("No database connection available")
         except Exception as e:
             raise Exception(f"Query failed: {str(e)}")
+    
+    def execute_dml_query(self, sql_query: str) -> pd.DataFrame:
+        """Execute DML operations and return result summary"""
+        try:
+            if self.engine:
+                from sqlalchemy import text
+                with self.engine.connect() as conn:
+                    result = conn.execute(text(sql_query))
+                    conn.commit()
+                    affected_rows = result.rowcount
+            elif hasattr(self, 'sqlite_conn'):
+                cursor = self.sqlite_conn.cursor()
+                cursor.execute(sql_query)
+                self.sqlite_conn.commit()
+                affected_rows = cursor.rowcount
+                cursor.close()
+            else:
+                raise Exception("No database connection available")
+            
+            # Reload table data after DML operation
+            self.refresh_table_data()
+            
+            # Return summary as DataFrame
+            operation = sql_query.strip().upper().split()[0]
+            summary_data = {
+                'Operation': [operation],
+                'Affected_Rows': [affected_rows],
+                'Status': ['Success']
+            }
+            return pd.DataFrame(summary_data)
+            
+        except Exception as e:
+            # Return error as DataFrame
+            error_data = {
+                'Operation': [sql_query.strip().upper().split()[0]],
+                'Affected_Rows': [0],
+                'Status': [f'Error: {str(e)}']
+            }
+            return pd.DataFrame(error_data)
     
     def generate_insights(self, question: str, query: str, results: pd.DataFrame) -> str:
         if len(results) == 0:

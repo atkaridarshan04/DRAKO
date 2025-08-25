@@ -287,6 +287,22 @@ if st.session_state.assistant:
     # Chat interface
     st.subheader("Ask Questions About Your Data")
     
+    # DML Operations help
+    with st.expander("💡 Supported Operations"):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Query Operations:**")
+            st.write("• Show me all records")
+            st.write("• Sort by column name")
+            st.write("• Count total records")
+            st.write("• Filter by conditions")
+        with col2:
+            st.write("**Data Operations:**")
+            st.write("• Delete records where...")
+            st.write("• Update column set value")
+            st.write("• Add new record")
+            st.write("• Modify existing data")
+    
     # Display chat history
     for chat in st.session_state.chat_history:
         with st.chat_message("user"):
