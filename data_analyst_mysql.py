@@ -269,11 +269,10 @@ SQL:"""
         if len(results) == 0:
             return "No results found for your query."
         
-        summary = f"Query returned {len(results)} rows."
-        if len(results) > 0:
-            summary += f" Sample: {results.head(2).to_dict('records')}"
+        # Create a clean summary without mentioning count
+        sample_data = results.head(3).to_dict('records')
         
-        prompt = f"Question: {question}\nResults: {summary}\n\nAnswer the question naturally based on the results. Be conversational and helpful."
+        prompt = f"Question: {question}\nData: {sample_data}\n\nAnswer the question directly based on the data. Don't mention how many results were found, just provide the insights."
         
         try:
             response = requests.post(f"{self.ollama_url}/api/generate", json={
@@ -286,19 +285,38 @@ SQL:"""
             if response.status_code == 200:
                 result = response.json()
                 if result and "response" in result and result["response"]:
-                    return result["response"].strip()
+                    insight = result["response"].strip()
+                    # Remove common phrases about result counts
+                    phrases_to_remove = [
+                        "I found", "I only found", "There is only", "There are only", 
+                        "The query returned", "Based on the results", "From the data"
+                    ]
+                    for phrase in phrases_to_remove:
+                        if insight.lower().startswith(phrase.lower()):
+                            # Find the first sentence and remove the count reference
+                            sentences = insight.split('.')
+                            if len(sentences) > 1:
+                                insight = '. '.join(sentences[1:]).strip()
+                            break
+                    return insight
         except Exception:
             pass
         
-        return f"Found {len(results)} results for your query."
+        return "Here are the results for your query."
     
-    def analyze(self, question: str) -> Dict[str, Any]:
+    def analyze(self, question: str, table_context: str = None) -> Dict[str, Any]:
         try:
             english_question, original_language = self.translate_to_english(question)
             
-            sql_query = self.nl_to_sql(question)
+            # Add table context to question if provided
+            if table_context:
+                context_question = f"From the {table_context} table: {english_question}"
+            else:
+                context_question = english_question
+            
+            sql_query = self.nl_to_sql(context_question)
             results = self.execute_query(sql_query)
-            english_insights = self.generate_insights(english_question, sql_query, results)
+            english_insights = self.generate_insights(context_question, sql_query, results)
             
             # Always translate insights back if it was a non-English question
             if original_language == 'other':

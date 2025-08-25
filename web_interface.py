@@ -56,6 +56,43 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Add custom CSS for styling the expander
+st.markdown("""
+<style>
+/* Style the expander title */
+div[data-testid="stExpander"] > details > summary {
+    background: linear-gradient(90deg, #12c2e9, #c471ed, #f64f59);
+    color: white;
+    font-weight: bold;
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+/* Remove default triangle and add custom icon */
+div[data-testid="stExpander"] > details > summary::-webkit-details-marker {
+    display: none;
+}
+
+div[data-testid="stExpander"] > details > summary:after {
+    content: " ▼";
+    float: right;
+    color: white;
+    font-size: 14px;
+}
+
+/* Expander content box styling */
+div[data-testid="stExpander"] > div {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 0.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Initialize session state
 if 'assistant' not in st.session_state:
     st.session_state.assistant = None
@@ -63,52 +100,127 @@ if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'visualizer' not in st.session_state:
     st.session_state.visualizer = EnhancedVisualizer()
+if 'current_table' not in st.session_state:
+    st.session_state.current_table = None
 
 st.markdown('<div class="main-header"><h1>🤖 LLM-Based Data Analyst Assistant</h1></div>', unsafe_allow_html=True)
 
 # Sidebar for configuration
+# Sidebar for configuration
 with st.sidebar:
-    st.header("Configuration")
-    
-    # Ollama URL
+    # Stylized DRAKO title
+    st.markdown("""
+    <div style="
+        text-align: center;
+        padding: 1.2rem 0 0.5rem 0;
+        border-bottom: 2px solid #ccc;
+        margin-bottom: 1rem;
+    ">
+        <h1 style="
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 2.8rem;
+            background: linear-gradient(90deg, #12c2e9, #c471ed, #f64f59);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 3px;
+            margin: 0;
+        ">DRAKO</h1>
+        <p style="
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 0.3rem;
+            font-style: italic;
+        ">Your AI-Powered Data Analyst</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Configuration section
+    st.markdown("""
+<div style="text-align: center; font-size: 1.5rem; font-weight: bold; margin-top: 10px; margin-bottom: 10px;">
+Configuration
+</div>
+""", unsafe_allow_html=True)
+
+
+    # Add custom CSS
+    st.markdown("""
+    <style>
+    .centered-text-input {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    .centered-text-input input {
+        text-align: center; /* Centers text inside input */
+        width: 50%; /* Adjust width */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Wrap your input inside a container with the custom class
+    st.markdown('<div class="centered-text-input">', unsafe_allow_html=True)
     ollama_url = st.text_input("Ollama URL", value="http://localhost:11434")
-    
-    st.subheader("MySQL Database")
-    mysql_host = st.text_input("MySQL Host", value="localhost")
-    mysql_port = st.number_input("MySQL Port", value=3306)
-    mysql_user = st.text_input("MySQL Username")
-    mysql_password = st.text_input("MySQL Password", type="password")
-    mysql_database = st.text_input("MySQL Database Name")
-    
-    if st.button("Connect to MySQL"):
-        if not all([mysql_host, mysql_user, mysql_password, mysql_database]):
-            st.error("Please fill in all MySQL credentials")
-        else:
-            try:
-                mysql_config = {
-                    'host': mysql_host,
-                    'port': int(mysql_port),
-                    'user': mysql_user,
-                    'password': mysql_password,
-                    'database': mysql_database
-                }
-                st.session_state.assistant = DataAnalystAssistant(ollama_url, mysql_config)
-                st.success("Connected to MySQL and initialized assistant!")
-            except Exception as e:
-                st.error(f"Failed to connect: {str(e)}")
-    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Collapsible MySQL Database Settings
+    with st.expander("MySQL Database Configuration", expanded=False):
+        mysql_host = st.text_input("Host", value="localhost")
+        mysql_port = st.number_input("Port", value=3306)
+        mysql_user = st.text_input("Username")
+        mysql_password = st.text_input("Password", type="password")
+        mysql_database = st.text_input("Database Name")
+
+        if st.button("Connect to MySQL"):
+            if not all([mysql_host, mysql_user, mysql_password, mysql_database]):
+                st.error("Please fill in all MySQL credentials")
+            else:
+                try:
+                    mysql_config = {
+                        'host': mysql_host,
+                        'port': int(mysql_port),
+                        'user': mysql_user,
+                        'password': mysql_password,
+                        'database': mysql_database
+                    }
+                    st.session_state.assistant = DataAnalystAssistant(ollama_url, mysql_config)
+                    st.success("Connected to MySQL and initialized assistant!")
+                except Exception as e:
+                    st.error(f"Failed to connect: {str(e)}")
+
+                    
+
+    # Button for file-only mode
     if st.button("Work with Files Only") and not st.session_state.assistant:
         st.session_state.assistant = DataAnalystAssistant(ollama_url)
         st.success("Assistant initialized for file-only mode!")
+    # Add a beautiful dashed horizontal line below the button
+    st.markdown("""
+<hr class="dashed-line">
+<style>
+.dashed-line {
+    border: none;
+    border-top: 2px dashed #c471ed; /* Purple dashed line */
+    margin: 15px auto;
+    width: 100%; /* Centered with reduced width */
+}
+</style>
+""", unsafe_allow_html=True)
     
-    st.header("Upload Data")
     
+    st.markdown("""
+<div style="text-align: center; font-size: 1.5rem; font-weight: bold; margin-top: 10px; margin-bottom: 10px;">
+Upload Data
+</div>
+""", unsafe_allow_html=True)
+
+
     # File upload
     uploaded_files = st.file_uploader(
         "Upload Excel/CSV files", 
         type=['xlsx', 'xls', 'csv'], 
         accept_multiple_files=True
     )
+
     
     if uploaded_files:
         if not st.session_state.assistant:
@@ -144,6 +256,12 @@ if st.session_state.assistant:
         if table_names:
             selected_table = st.selectbox("Select a table to view:", ["-- Select Table --"] + table_names)
             
+            # Clear chat history when table changes
+            if selected_table != st.session_state.current_table and selected_table != "-- Select Table --":
+                st.session_state.chat_history = []
+                st.session_state.current_table = selected_table
+                st.rerun()
+            
             if selected_table != "-- Select Table --":
                 info = st.session_state.assistant.tables[selected_table]
                 st.write(f"**Table:** {selected_table}")
@@ -153,6 +271,9 @@ if st.session_state.assistant:
                     st.dataframe(pd.DataFrame(info['sample_data']))
                 else:
                     st.write("No sample data available")
+                
+                # Show context indicator
+                st.info(f"💬 Chat context: {selected_table} table")
         
         # Expandable view for all tables
         with st.expander("View All Tables Details"):
@@ -232,7 +353,7 @@ if st.session_state.assistant:
         
         with st.chat_message("assistant"):
             with st.spinner("Analyzing..."):
-                result = st.session_state.assistant.analyze(question)
+                result = st.session_state.assistant.analyze(question, st.session_state.current_table)
                 st.session_state.chat_history.append(result)
                 
                 if result['success']:
@@ -247,6 +368,7 @@ if st.session_state.assistant:
                         
                         # Clean data summary
                         data_summary = st.session_state.visualizer.get_chart_summary(results_df)
+                       
                         st.info(data_summary)
                         
                         # Create and display chart
@@ -290,10 +412,4 @@ else:
     st.warning("Please connect to MySQL database in the sidebar. Make sure Ollama is running with Llama 3 model.")
     st.info("💡 **Tip:** Once connected, you can use existing tables in your database or upload new files.")
     
-    st.markdown("""
-    ### Features:
-    - **Use Existing Tables**: Connect to see all tables in your database
-    - **Upload New Data**: Add CSV/Excel files to create new tables
-    - **Multilingual Support**: Ask questions in any language
-    - **Smart Visualizations**: Automatic charts and insights
-    """)
+ 
