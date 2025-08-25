@@ -78,7 +78,7 @@ An AI-powered data analysis tool that lets you query Excel/CSV files and MySQL d
 - "¿Cuáles son los productos más vendidos?"
 - "Muestra los ingresos por región"
 
-**PIE-CHART**:What is the distribution of sales by region
+**PIE-CHART**:what is the distribution of sales by region
 **line-GRAPH**:- "सबसे ज्यादा बिकने वाले उत्पाद कौन से हैं?"
 
 
